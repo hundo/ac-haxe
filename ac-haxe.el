@@ -75,32 +75,31 @@
                     (ac-haxe--msg "Full MSG. sz=%s" msg-sz)
                     (let ((xmsg (xml-parse-region 5 (+ 4 msg-sz))))
                       (ac-haxe--msg "MSG: %S" xmsg)
-                      (if xmsg
-                          (setq ac-haxe--completion-response xmsg)
-                        (let ((msg (buffer-substring 5 (+ 2 msg-sz))))
-                          (ac-haxe--msg "Got msg %s %s!" (length msg) msg)))
-
-
-                      ))
+                      (setq ac-haxe--completion-response
+                            (if xmsg
+                                xmsg
+                              (buffer-substring 5 (+ 2 msg-sz))))))
                 (error
                  (ac-haxe--msg "Haxe-completion error: %s"
                                (substring msg 4 (+ 4 msg-sz))))))))))))
 
 
-(defun ac-haxe--process-response (parsedxml)
-  (ac-haxe--msg "Processing: %S" parsedxml)
-  (let ((rootnode (car parsedxml)))
-    (cl-case (xml-node-name rootnode)
-      (list
-       (let* ((items (cl-remove-if 'stringp (xml-node-children (car parsedxml))))
-              (res (mapcar (lambda (ch)
-                             (xml-get-attribute ch 'n))
-                           items)))
-         (ac-haxe--msg "Procesed: %S" res)
-         res))
-      (type
-       (ac-haxe--msg "Type: %S" (cddr rootnode))
-       nil))))
+(defun ac-haxe--process-response (msg)
+  (ac-haxe--msg "Processing: %S" msg)
+  (if (stringp msg)
+      (message "Haxe: %s" msg)
+    (let ((rootnode (car msg)))
+      (cl-case (xml-node-name rootnode)
+        (list
+         (let* ((items (cl-remove-if 'stringp (xml-node-children rootnode)))
+                (res (mapcar (lambda (ch)
+                               (xml-get-attribute ch 'n))
+                             items)))
+           (ac-haxe--msg "Procesed: %S" res)
+           res))
+        (type
+         (ac-haxe--msg "Type: %S" (cddr rootnode))
+         nil)))))
 
 
 (defun ac-haxe--make-process ()
@@ -162,7 +161,7 @@
     (process-send-string proc cmd)
 
     (catch 'loop
-      (dotimes (i 30)
+      (dotimes (i 5)
         (accept-process-output proc 0.3)
         (when ac-haxe--completion-response
           (throw 'loop i))))
